@@ -11,8 +11,8 @@
 # itself from the quota (availableProcessors = 8) rather than the cpuset.
 # Totals are identical across both entries so only the replica count differs:
 #
-#   24 CPUs, 96 GiB of memory and 192 Postgres connections in total:
-#   3 replicas x 8 CPUs, 32g and a 64-connection pool each
+#   24 CPUs, 48 GiB of memory and 192 Postgres connections in total:
+#   3 replicas x 8 CPUs, 16g and a 64-connection pool each
 #
 # Replica k listens on 808(k-1); server-1 holds 8080, which the harness probes.
 
@@ -31,7 +31,7 @@ x-server: &server
   network_mode: host
   cpuset: "20-31,84-95"
   cpus: 8
-  mem_limit: 32g
+  mem_limit: 16g
   ulimits:
     memlock: -1
     nofile:
