@@ -56,8 +56,9 @@ system_tune() {
     # leaving them bindable, which is exactly the case it exists for. Every
     # fixed port the harness or a stack listens on belongs here: 8080/8081/8082/
     # 8443 from common.sh, 9090 for the production-stack auth sidecar, 6379 and
-    # 5432 for the Redis and Postgres sidecars.
-    sudo sysctl -w net.ipv4.ip_local_reserved_ports='5432,6379,8080,8081,8082,8443,9090' \
+    # 5432 for the Redis and Postgres sidecars. 8083-8087 are the upstream
+    # replicas of the spring-boot-gateway-8 experiment.
+    sudo sysctl -w net.ipv4.ip_local_reserved_ports='5432,6379,8080-8087,8443,9090' \
         >/dev/null 2>&1 || warn "ip_local_reserved_ports"
 
     info "setting UDP buffer sizes for QUIC"
