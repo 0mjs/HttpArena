@@ -10,7 +10,7 @@
     "response": true
   },
   "engine": "tomcat",
-  "description": "Experimental, not for merge. Spring Boot (Tomcat, JDK 25, virtual threads) scaled out to 8 replicas behind one nginx edge that terminates TLS + h2, serves /static/* from disk and round-robins the dynamic endpoints over loopback HTTP/1.1. The replicas share 24 logical CPUs through 3-CPU quotas, 1536m each and a 24-connection Hikari pool each; compare with spring-boot-gateway-3, which spends the same totals on 3 replicas.",
+  "description": "Experimental, not for merge. Spring Boot (Tomcat, JDK 25, virtual threads) scaled out to 8 replicas behind one nginx edge that terminates TLS + h2, serves /static/* from disk and round-robins the dynamic endpoints over loopback HTTP/1.1. The replicas share 24 logical CPUs through 3-CPU quotas, 12g each and a 24-connection Hikari pool each; compare with spring-boot-gateway-3, which spends the same totals on 3 replicas.",
   "repo": "https://github.com/spring-projects/spring-boot",
   "enabled": true,
   "tests": [
