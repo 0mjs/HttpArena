@@ -22,8 +22,9 @@ Zinc web framework on the Go `net/http` server, default configuration.
 
 - Routing and path parameters through the Zinc router (`{name}` patterns), JSON through `c.JSON`, JSON request bodies through `c.Bind().JSON`
 - Compression through the `middleware/compress` package
+- HTTP/2 through the standard `net/http` server: over TLS on `:8443` (ALPN `h2`), and cleartext on `:8082` via `http.Protocols.SetUnencryptedHTTP2`. A Zinc app is an `http.Handler`, so it is served as-is
 - Default configuration: no middleware besides compression; Zinc's built-in `/openapi.json` and `/docs` routes are left on, as they are by default
 
 ## Added profiles
 
-`static`, `static-tls`, `json-tls`, `async-db` and `crud`.
+`static`, `static-tls`, `json-tls`, `async-db`, `crud`, `baseline-h2`, `static-h2`, `baseline-h2c` and `json-h2c`.

@@ -408,14 +408,24 @@ func main() {
 	app.Get("/crud/items/{id}", crudRead)
 	app.Put("/crud/items/{id}", crudUpdate)
 
-	// json-tls and static-tls on 8081, the same app behind TLS. The harness
-	// only mounts /certs for the TLS profiles, so without them it is not opened.
+	// json-tls and static-tls on 8081, and baseline-h2 and static-h2 on 8443:
+	// the same app behind TLS, where net/http negotiates HTTP/2 by ALPN. The
+	// harness only mounts /certs for the TLS profiles, so without them neither
+	// is opened.
 	const cert, key = "/certs/server.crt", "/certs/server.key"
 	if _, err := os.Stat(cert); err == nil {
 		if _, err := os.Stat(key); err == nil {
 			go app.ListenTLS(":8081", cert, key)
+			go (&http.Server{Addr: ":8443", Handler: app}).ListenAndServeTLS(cert, key)
 		}
 	}
+
+	// baseline-h2c and json-h2c on 8082: an App is an http.Handler, so a
+	// standard server with unencrypted HTTP/2 serves it.
+	h2c := new(http.Protocols)
+	h2c.SetHTTP1(true)
+	h2c.SetUnencryptedHTTP2(true)
+	go (&http.Server{Addr: ":8082", Handler: app, Protocols: h2c}).ListenAndServe()
 
 	if err := app.Listen(":8080"); err != nil {
 		os.Stderr.WriteString(err.Error() + "\n")
