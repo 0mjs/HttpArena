@@ -78,6 +78,10 @@ public class Application implements WebServerFactoryCustomizer<TomcatServletWebS
 	public DataSource postgresqlPoolDataSource(@Qualifier("postgresql") DataSource dataSource) {
 		HikariConfig configuration = new HikariConfig();
 		configuration.setDataSource(dataSource);
+		String poolSize = System.getenv("DATABASE_POOL_SIZE");
+		if (poolSize != null && !poolSize.isBlank()) {
+			configuration.setMaximumPoolSize(Integer.parseInt(poolSize));
+		}
 		return new HikariDataSource(configuration);
 	}
 
@@ -91,10 +95,14 @@ public class Application implements WebServerFactoryCustomizer<TomcatServletWebS
 	@Override
 	public void customize(final TomcatServletWebServerFactory factory) {
 		CompressionConnectorCustomizer connectorCustomizer = new CompressionConnectorCustomizer(serverProperties.getCompression());
-		Connector connector = new Connector("HTTP/1.1");
-		connector.setPort(8080);
-		connectorCustomizer.customize(connector);
-		factory.addAdditionalConnectors(connector);
+		// HTTP_PORT=0 drops the plain connector, for replicas that serve on SERVER_PORT alone
+		int httpPort = Integer.parseInt(System.getenv().getOrDefault("HTTP_PORT", "8080"));
+		if (httpPort > 0) {
+			Connector connector = new Connector("HTTP/1.1");
+			connector.setPort(httpPort);
+			connectorCustomizer.customize(connector);
+			factory.addAdditionalConnectors(connector);
+		}
 
 		String certPath = System.getenv().getOrDefault("TLS_CERT", "/certs/server.crt");
 		String keyPath = System.getenv().getOrDefault("TLS_KEY", "/certs/server.key");

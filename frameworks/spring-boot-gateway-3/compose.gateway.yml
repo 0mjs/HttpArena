@@ -1,0 +1,92 @@
+# EXPERIMENTAL - not for merge. gateway-64 with spring-boot scaled out to 3
+# replicas behind one nginx edge, to see whether a Kubernetes deployment should
+# run a few large pods or many small ones. The sibling entry
+# spring-boot-gateway-8 is the same stack with 8 replicas.
+#
+# This breaks the gateway-64 rule of exactly one server; it is a measurement,
+# not a leaderboard entry.
+#
+# Every replica shares the same server cpuset (20-31,84-95, 24 logical CPUs)
+# and is held to a CFS quota the way a pod's CPU limit is, so the JVM sizes
+# itself from the quota (availableProcessors = 8) rather than the cpuset.
+# Totals are identical across both entries so only the replica count differs:
+#
+#   24 CPUs, 12 GiB of memory and 192 Postgres connections in total:
+#   3 replicas x 8 CPUs, 4096m and a 64-connection pool each
+#
+# Replica k listens on 808(k-1); server-1 holds 8080, which the harness probes.
+
+x-server-env: &server-env
+  DATABASE_URL: ${DATABASE_URL}
+  DATABASE_POOL_SIZE: "64"
+  # plain HTTP on SERVER_PORT only: no TLS, no h2c upgrade, no extra connector
+  SERVER_SSL_ENABLED: "false"
+  SERVER_HTTP2_ENABLED: "false"
+  HTTP_PORT: "0"
+  JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=75"
+
+x-server: &server
+  build:
+    context: ../spring-boot
+  network_mode: host
+  cpuset: "20-31,84-95"
+  cpus: 8
+  mem_limit: 4096m
+  ulimits:
+    memlock: -1
+    nofile:
+      soft: 1048576
+      hard: 1048576
+  security_opt:
+    - seccomp:unconfined
+  volumes:
+    - ${DATA_DIR}/dataset.json:/data/dataset.json:ro
+  # the port only opens once the Spring context is up; the edge waits for all of them
+  healthcheck:
+    test: ["CMD-SHELL", "bash -c ':> /dev/tcp/127.0.0.1/$$SERVER_PORT'"]
+    interval: 30s
+    timeout: 2s
+    retries: 3
+    start_period: 120s
+    start_interval: 1s
+
+services:
+  proxy:
+    build: ./proxy
+    network_mode: host
+    cpuset: "0-19,64-83"
+    ulimits:
+      memlock: -1
+      nofile:
+        soft: 1048576
+        hard: 1048576
+    security_opt:
+      - seccomp:unconfined
+    volumes:
+      - ${CERTS_DIR}:/certs:ro
+      - ${DATA_DIR}/static:/data/static:ro
+    depends_on:
+      server-1:
+        condition: service_healthy
+      server-2:
+        condition: service_healthy
+      server-3:
+        condition: service_healthy
+
+  server-1:
+    <<: *server
+    environment:
+      <<: *server-env
+      SERVER_PORT: "8080"
+
+  server-2:
+    <<: *server
+    environment:
+      <<: *server-env
+      SERVER_PORT: "8081"
+
+  server-3:
+    <<: *server
+    environment:
+      <<: *server-env
+      SERVER_PORT: "8082"
