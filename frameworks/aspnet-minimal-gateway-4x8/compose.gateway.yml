@@ -1,0 +1,101 @@
+# EXPERIMENTAL - not for merge. gateway-64 with aspnet-minimal scaled out to
+# 4 pods of 8 CPUs behind one nginx edge; aspnet-minimal-gateway-8x4
+# spends the same totals on the other split. Mirrors spring-boot-gateway-4x8 /
+# -8x4, to see whether a Kubernetes deployment should run a few large pods or
+# many small ones.
+#
+# This breaks the gateway-64 rule of exactly one server; it is a measurement,
+# not a leaderboard entry.
+#
+# The replicas are not pinned: they share the server cpuset (16-31,80-95, 32
+# logical CPUs) and each is held to a CFS quota the way a pod's CPU limit is,
+# so .NET sizes itself from the quota (ProcessorCount = 8, server GC with
+# 8 heaps) and caps the GC heap at 75% of the memory limit.
+#
+#   32 CPUs, 48 GiB of memory and 192 Postgres connections in total:
+#   4 replicas x 8 CPUs, 12g and a 48-connection pool each
+#
+# Replica k listens on 808(k-1); server-1 holds 8080, which the harness probes.
+
+x-server-env: &server-env
+  DATABASE_URL: ${DATABASE_URL}
+  DATABASE_MAX_CONN: "48"
+  # plain HTTP/1.1 on HTTP_PORT only; no certs are mounted, so no TLS listeners
+  H2C_PORT: "0"
+
+x-server: &server
+  build:
+    context: ../../
+    dockerfile: frameworks/aspnet-minimal/Dockerfile
+  network_mode: host
+  cpuset: "16-31,80-95"
+  cpus: 8
+  mem_limit: 12g
+  ulimits:
+    memlock: -1
+    nofile:
+      soft: 1048576
+      hard: 1048576
+  security_opt:
+    - seccomp:unconfined
+  volumes:
+    - ${DATA_DIR}/dataset.json:/data/dataset.json:ro
+    # the app maps /static at boot and fails without the directory; nginx serves it
+    - ${DATA_DIR}/static:/data/static:ro
+  # the port only opens once the app is up; the edge waits for all of them
+  healthcheck:
+    test: ["CMD-SHELL", "bash -c ':> /dev/tcp/127.0.0.1/$$HTTP_PORT'"]
+    interval: 30s
+    timeout: 2s
+    retries: 3
+    start_period: 120s
+    start_interval: 1s
+
+services:
+  proxy:
+    build: ./proxy
+    network_mode: host
+    cpuset: "0-15,64-79"
+    ulimits:
+      memlock: -1
+      nofile:
+        soft: 1048576
+        hard: 1048576
+    security_opt:
+      - seccomp:unconfined
+    volumes:
+      - ${CERTS_DIR}:/certs:ro
+      - ${DATA_DIR}/static:/data/static:ro
+    depends_on:
+      server-1:
+        condition: service_healthy
+      server-2:
+        condition: service_healthy
+      server-3:
+        condition: service_healthy
+      server-4:
+        condition: service_healthy
+
+  server-1:
+    <<: *server
+    environment:
+      <<: *server-env
+      HTTP_PORT: "8080"
+
+  server-2:
+    <<: *server
+    environment:
+      <<: *server-env
+      HTTP_PORT: "8081"
+
+  server-3:
+    <<: *server
+    environment:
+      <<: *server-env
+      HTTP_PORT: "8082"
+
+  server-4:
+    <<: *server
+    environment:
+      <<: *server-env
+      HTTP_PORT: "8083"

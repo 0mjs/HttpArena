@@ -32,25 +32,35 @@ var tlsCheckCert = "/certs-tls/server.crt";
 var tlsCheckKey = "/certs-tls/server.key";
 var hasTlsCheck = File.Exists(tlsCheckCert) && File.Exists(tlsCheckKey);
 
+// Overridable so several replicas can share the host network; 0 drops the listener.
+var httpPort = int.TryParse(Environment.GetEnvironmentVariable("HTTP_PORT"), out var hp) ? hp : 8080;
+var h2cPort = int.TryParse(Environment.GetEnvironmentVariable("H2C_PORT"), out var cp) ? cp : 8082;
+
 builder.WebHost.ConfigureKestrel(options =>
 {
     options.Limits.Http2.MaxStreamsPerConnection = 256;
     options.Limits.Http2.InitialConnectionWindowSize = 2 * 1024 * 1024;
     options.Limits.Http2.InitialStreamWindowSize = 1024 * 1024;
 
-    options.ListenAnyIP(8080, lo =>
+    if (httpPort > 0)
     {
-        lo.Protocols = HttpProtocols.Http1;
-    });
+        options.ListenAnyIP(httpPort, lo =>
+        {
+            lo.Protocols = HttpProtocols.Http1;
+        });
+    }
 
     // h2c prior-knowledge listener for the baseline-h2c / json-h2c profiles.
     // Protocols = Http2 with no UseHttps() gives Kestrel cleartext HTTP/2
     // from the first byte. Clients that try HTTP/1.1 on this port get
     // rejected, which is what validate.sh's h2c anti-cheat requires.
-    options.ListenAnyIP(8082, lo =>
+    if (h2cPort > 0)
     {
-        lo.Protocols = HttpProtocols.Http2;
-    });
+        options.ListenAnyIP(h2cPort, lo =>
+        {
+            lo.Protocols = HttpProtocols.Http2;
+        });
+    }
 
     if (hasCert)
     {

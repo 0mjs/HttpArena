@@ -1,0 +1,20 @@
+{
+  "display_name": "aspnet-minimal + nginx (4 x 8 CPUs)",
+  "language": "C#",
+  "type": "flagship",
+  "mode": "standard",
+  "completeness": {
+    "routing": true,
+    "middleware": true,
+    "request": true,
+    "response": true
+  },
+  "engine": "kestrel",
+  "description": "Experimental, not for merge. ASP.NET Core minimal API (the aspnet-minimal image) scaled out to 4 replicas behind one nginx edge that terminates TLS + h2, serves /static/* from disk and round-robins the dynamic endpoints over loopback HTTP/1.1. The replicas share 32 logical CPUs through 8-CPU quotas, 12g each and a 48-connection Npgsql pool each; compare with aspnet-minimal-gateway-8x4, which spends the same totals on the other split.",
+  "repo": "https://github.com/dotnet/aspnetcore",
+  "enabled": true,
+  "tests": [
+    "gateway-64"
+  ],
+  "maintainers": []
+}
