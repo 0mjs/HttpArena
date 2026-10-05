@@ -1,0 +1,99 @@
+# EXPERIMENTAL - not for merge. gateway-64 with spring-boot scaled out to 4
+# pods of 8 CPUs behind one nginx edge; spring-boot-gateway-8x4 spends the same
+# totals on the other split. Same idea as spring-boot-gateway-3 / -8, with
+# larger pods and a 32/32 CPU split between the edge and the pods.
+#
+# This breaks the gateway-64 rule of exactly one server; it is a measurement,
+# not a leaderboard entry.
+#
+# The replicas are not pinned: they share the server cpuset (16-31,80-95, 32
+# logical CPUs) and each is held to a CFS quota the way a pod's CPU limit is,
+# so the JVM sizes itself from the quota (availableProcessors = 8).
+#
+#   32 CPUs, 48 GiB of memory and 192 Postgres connections in total:
+#   4 replicas x 8 CPUs, 12g and a 48-connection pool each
+#
+# Replica k listens on 808(k-1); server-1 holds 8080, which the harness probes.
+
+x-server-env: &server-env
+  DATABASE_URL: ${DATABASE_URL}
+  DATABASE_POOL_SIZE: "48"
+  # plain HTTP on SERVER_PORT only: no TLS, no h2c upgrade, no extra connector
+  SERVER_SSL_ENABLED: "false"
+  SERVER_HTTP2_ENABLED: "false"
+  HTTP_PORT: "0"
+  JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=75"
+
+x-server: &server
+  build:
+    context: ../spring-boot
+  network_mode: host
+  cpuset: "16-31,80-95"
+  cpus: 8
+  mem_limit: 12g
+  ulimits:
+    memlock: -1
+    nofile:
+      soft: 1048576
+      hard: 1048576
+  security_opt:
+    - seccomp:unconfined
+  volumes:
+    - ${DATA_DIR}/dataset.json:/data/dataset.json:ro
+  # the port only opens once the Spring context is up; the edge waits for all of them
+  healthcheck:
+    test: ["CMD-SHELL", "bash -c ':> /dev/tcp/127.0.0.1/$$SERVER_PORT'"]
+    interval: 30s
+    timeout: 2s
+    retries: 3
+    start_period: 120s
+    start_interval: 1s
+
+services:
+  proxy:
+    build: ./proxy
+    network_mode: host
+    cpuset: "0-15,64-79"
+    ulimits:
+      memlock: -1
+      nofile:
+        soft: 1048576
+        hard: 1048576
+    security_opt:
+      - seccomp:unconfined
+    volumes:
+      - ${CERTS_DIR}:/certs:ro
+      - ${DATA_DIR}/static:/data/static:ro
+    depends_on:
+      server-1:
+        condition: service_healthy
+      server-2:
+        condition: service_healthy
+      server-3:
+        condition: service_healthy
+      server-4:
+        condition: service_healthy
+
+  server-1:
+    <<: *server
+    environment:
+      <<: *server-env
+      SERVER_PORT: "8080"
+
+  server-2:
+    <<: *server
+    environment:
+      <<: *server-env
+      SERVER_PORT: "8081"
+
+  server-3:
+    <<: *server
+    environment:
+      <<: *server-env
+      SERVER_PORT: "8082"
+
+  server-4:
+    <<: *server
+    environment:
+      <<: *server-env
+      SERVER_PORT: "8083"

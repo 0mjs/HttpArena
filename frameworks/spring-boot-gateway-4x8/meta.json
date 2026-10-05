@@ -1,0 +1,20 @@
+{
+  "display_name": "spring-boot + nginx (4 x 8 CPUs)",
+  "language": "Java",
+  "type": "flagship",
+  "mode": "standard",
+  "completeness": {
+    "routing": true,
+    "middleware": true,
+    "request": true,
+    "response": true
+  },
+  "engine": "tomcat",
+  "description": "Experimental, not for merge. Spring Boot (Tomcat, JDK 25, virtual threads) scaled out to 4 replicas behind one nginx edge that terminates TLS + h2, serves /static/* from disk and round-robins the dynamic endpoints over loopback HTTP/1.1. The replicas share 32 logical CPUs through 8-CPU quotas, 12g each and a 48-connection Hikari pool each; compare with spring-boot-gateway-8x4, which spends the same totals on the other split.",
+  "repo": "https://github.com/spring-projects/spring-boot",
+  "enabled": true,
+  "tests": [
+    "gateway-64"
+  ],
+  "maintainers": []
+}
