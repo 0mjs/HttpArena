@@ -1,0 +1,20 @@
+{
+  "display_name": "spring-boot + nginx (8 replicas, no CPU limits)",
+  "language": "Java",
+  "type": "flagship",
+  "mode": "standard",
+  "completeness": {
+    "routing": true,
+    "middleware": true,
+    "request": true,
+    "response": true
+  },
+  "engine": "tomcat",
+  "description": "Experimental, not for merge. spring-boot-gateway-8 without CPU limits: 8 Spring Boot replicas behind one nginx edge share 24 logical CPUs with no CFS quota, like pods with requests but no limits. Each runs with -XX:ActiveProcessorCount=3, 6g of memory and a 24-connection Hikari pool; compare with spring-boot-gateway-8 (limited) and spring-boot-gateway-3-unlimited.",
+  "repo": "https://github.com/spring-projects/spring-boot",
+  "enabled": true,
+  "tests": [
+    "gateway-64"
+  ],
+  "maintainers": []
+}
